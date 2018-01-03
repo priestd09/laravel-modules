@@ -23,10 +23,8 @@ class ListCommand extends Command
 
     /**
      * Execute the console command.
-     *
-     * @return mixed
      */
-    public function fire()
+    public function handle()
     {
         $this->table(['Name', 'Status', 'Order', 'Path'], $this->getRows());
     }
@@ -42,7 +40,7 @@ class ListCommand extends Command
 
         foreach ($this->getModules() as $module) {
             $rows[] = [
-                $module->getStudlyName(),
+                $module->getName(),
                 $module->enabled() ? 'Enabled' : 'Disabled',
                 $module->get('order'),
                 $module->getPath(),
@@ -80,9 +78,9 @@ class ListCommand extends Command
      */
     protected function getOptions()
     {
-        return array(
-            array('only', null, InputOption::VALUE_OPTIONAL, 'Types of modules will be displayed.', null),
-            array('direction', 'd', InputOption::VALUE_OPTIONAL, 'The direction of ordering.', 'asc'),
-        );
+        return [
+            ['only', null, InputOption::VALUE_OPTIONAL, 'Types of modules will be displayed.', null],
+            ['direction', 'd', InputOption::VALUE_OPTIONAL, 'The direction of ordering.', 'asc'],
+        ];
     }
 }

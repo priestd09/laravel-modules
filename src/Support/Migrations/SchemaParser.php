@@ -138,6 +138,7 @@ class SchemaParser implements Arrayable
      *
      * @param string $column
      * @param array  $attributes
+     * @param string $type
      *
      * @return string
      */
@@ -153,7 +154,7 @@ class SchemaParser implements Arrayable
             }
         }
 
-        return $results .= ';' . PHP_EOL;
+        return $results . ';' . PHP_EOL;
     }
 
     /**
@@ -227,9 +228,7 @@ class SchemaParser implements Arrayable
      */
     public function getColumn($schema)
     {
-        return array_first(explode(':', $schema), function ($key, $value) {
-            return $value;
-        });
+        return array_get(explode(':', $schema), 0);
     }
 
     /**

@@ -27,21 +27,26 @@ class MigrateResetCommand extends Command
     protected $description = 'Reset the modules migrations.';
 
     /**
-     * Execute the console command.
-     *
-     * @return mixed
+     * @var \Nwidart\Modules\Repository
      */
-    public function fire()
-    {
-        $module = $this->argument('module');
+    protected $module;
 
-        if (!empty($module)) {
-            $this->reset($module);
+    /**
+     * Execute the console command.
+     */
+    public function handle()
+    {
+        $this->module = $this->laravel['modules'];
+
+        $name = $this->argument('module');
+
+        if (!empty($name)) {
+            $this->reset($name);
 
             return;
         }
 
-        foreach (array_reverse($this->laravel['modules']->all()) as $module) {
+        foreach ($this->module->getOrdered($this->option('direction')) as $module) {
             $this->line('Running for module: <info>' . $module->getName() . '</info>');
 
             $this->reset($module);
@@ -56,10 +61,16 @@ class MigrateResetCommand extends Command
     public function reset($module)
     {
         if (is_string($module)) {
-            $module = $this->laravel['modules']->findOrFail($module);
+            $module = $this->module->findOrFail($module);
         }
 
         $migrator = new Migrator($module);
+
+        $database = $this->option('database');
+
+        if (!empty($database)) {
+            $migrator->setDatabase($database);
+        }
 
         $migrated = $migrator->reset();
 
@@ -81,9 +92,9 @@ class MigrateResetCommand extends Command
      */
     protected function getArguments()
     {
-        return array(
-            array('module', InputArgument::OPTIONAL, 'The name of module will be used.'),
-        );
+        return [
+            ['module', InputArgument::OPTIONAL, 'The name of module will be used.'],
+        ];
     }
 
     /**
@@ -93,10 +104,11 @@ class MigrateResetCommand extends Command
      */
     protected function getOptions()
     {
-        return array(
-            array('database', null, InputOption::VALUE_OPTIONAL, 'The database connection to use.'),
-            array('force', null, InputOption::VALUE_NONE, 'Force the operation to run when in production.'),
-            array('pretend', null, InputOption::VALUE_NONE, 'Dump the SQL queries that would be run.'),
-        );
+        return [
+            ['direction', 'd', InputOption::VALUE_OPTIONAL, 'The direction of ordering.', 'desc'],
+            ['database', null, InputOption::VALUE_OPTIONAL, 'The database connection to use.'],
+            ['force', null, InputOption::VALUE_NONE, 'Force the operation to run when in production.'],
+            ['pretend', null, InputOption::VALUE_NONE, 'Dump the SQL queries that would be run.'],
+        ];
     }
 }

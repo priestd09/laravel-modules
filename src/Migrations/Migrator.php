@@ -2,7 +2,10 @@
 
 namespace Nwidart\Modules\Migrations;
 
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Collection;
 use Nwidart\Modules\Module;
+use Nwidart\Modules\Support\Config\GenerateConfigReader;
 
 class Migrator
 {
@@ -16,9 +19,16 @@ class Migrator
     /**
      * Laravel Application instance.
      *
-     * @var \Illuminate\Foundation\Application.
+     * @var Application.
      */
     protected $laravel;
+
+    /**
+     * The database connection to be used
+     *
+     * @var string
+     */
+    protected $database = '';
 
     /**
      * Create new instance.
@@ -32,15 +42,42 @@ class Migrator
     }
 
     /**
+     * Set the database connection to be used
+     *
+     * @param $database
+     *
+     * @return $this
+     */
+    public function setDatabase($database)
+    {
+        if (is_string($database) && $database) {
+            $this->database = $database;
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Module
+     */
+    public function getModule()
+    {
+        return $this->module;
+    }
+
+    /**
      * Get migration path.
      *
      * @return string
      */
     public function getPath()
     {
-        return $this->module->getExtraPath(
-            config('modules.paths.generator.migration')
-        );
+        $config = $this->module->get('migration');
+
+        $migrationPath = GenerateConfigReader::read('migration');
+        $path = (is_array($config) && array_key_exists('path', $config)) ? $config['path'] : $migrationPath->getPath();
+
+        return $this->module->getExtraPath($path);
     }
 
     /**
@@ -57,12 +94,11 @@ class Migrator
         // extension and take the basename of the file which is all we need when
         // finding the migrations that haven't been run against the databases.
         if ($files === false) {
-            return array();
+            return [];
         }
 
         $files = array_map(function ($file) {
             return str_replace('.php', '', basename($file));
-
         }, $files);
 
         // Once we have all of the formatted file names we will sort them and since
@@ -177,7 +213,6 @@ class Migrator
     public function requireFiles(array $files)
     {
         $path = $this->getPath();
-
         foreach ($files as $file) {
             $this->laravel['files']->requireOnce($path . '/' . $file . '.php');
         }
@@ -186,11 +221,11 @@ class Migrator
     /**
      * Get table instance.
      *
-     * @return string
+     * @return \Illuminate\Database\Query\Builder
      */
     public function table()
     {
-        return $this->laravel['db']->table(config('database.migrations'));
+        return $this->laravel['db']->connection($this->database ?: null)->table(config('database.migrations'));
     }
 
     /**
@@ -233,14 +268,18 @@ class Migrator
     /**
      * Get the last migration batch number.
      *
-     * @param array $migrations
+     * @param array|null $migrations
      * @return int
      */
-    public function getLastBatchNumber($migrations)
+    public function getLastBatchNumber($migrations = null)
     {
-        return $this->table()
-            ->whereIn('migration', $migrations)
-            ->max('batch');
+        $table = $this->table();
+
+        if (is_array($migrations)) {
+            $table = $table->whereIn('migration', $migrations);
+        }
+
+        return $table->max('batch');
     }
 
     /**
@@ -248,29 +287,28 @@ class Migrator
      *
      * @param array $migrations
      *
-     * @return array
+     * @return Collection
      */
     public function getLast($migrations)
     {
         $query = $this->table()
             ->where('batch', $this->getLastBatchNumber($migrations))
-            ->whereIn('migration', $migrations)
-            ;
+            ->whereIn('migration', $migrations);
 
         $result = $query->orderBy('migration', 'desc')->get();
 
         return collect($result)->map(function ($item) {
             return (array) $item;
-        })->lists('migration');
+        })->pluck('migration');
     }
 
     /**
      * Get the ran migrations.
      *
-     * @return array
+     * @return Collection
      */
     public function getRan()
     {
-        return $this->table()->lists('migration');
+        return $this->table()->pluck('migration');
     }
 }

@@ -3,6 +3,7 @@
 namespace Nwidart\Modules\Commands;
 
 use Illuminate\Console\Command;
+use Nwidart\Modules\Migrations\Migrator;
 use Nwidart\Modules\Publishing\MigrationPublisher;
 use Symfony\Component\Console\Input\InputArgument;
 
@@ -24,10 +25,8 @@ class PublishMigrationCommand extends Command
 
     /**
      * Execute the console command.
-     *
-     * @return mixed
      */
-    public function fire()
+    public function handle()
     {
         if ($name = $this->argument('module')) {
             $module = $this->laravel['modules']->findOrFail($name);
@@ -49,7 +48,7 @@ class PublishMigrationCommand extends Command
      */
     public function publish($module)
     {
-        with(new MigrationPublisher($module))
+        with(new MigrationPublisher(new Migrator($module)))
             ->setRepository($this->laravel['modules'])
             ->setConsole($this)
             ->publish();
@@ -62,8 +61,8 @@ class PublishMigrationCommand extends Command
      */
     protected function getArguments()
     {
-        return array(
-            array('module', InputArgument::OPTIONAL, 'The name of module being used.'),
-        );
+        return [
+            ['module', InputArgument::OPTIONAL, 'The name of module being used.'],
+        ];
     }
 }

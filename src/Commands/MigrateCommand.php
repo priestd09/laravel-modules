@@ -3,6 +3,8 @@
 namespace Nwidart\Modules\Commands;
 
 use Illuminate\Console\Command;
+use Nwidart\Modules\Migrations\Migrator;
+use Nwidart\Modules\Module;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -32,14 +34,16 @@ class MigrateCommand extends Command
      *
      * @return mixed
      */
-    public function fire()
+    public function handle()
     {
         $this->module = $this->laravel['modules'];
 
         $name = $this->argument('module');
 
         if ($name) {
-            return $this->migrate($name);
+            $module = $this->module->findOrFail($name);
+
+            return $this->migrate($module);
         }
 
         foreach ($this->module->getOrdered($this->option('direction')) as $module) {
@@ -52,37 +56,26 @@ class MigrateCommand extends Command
     /**
      * Run the migration from the specified module.
      *
-     * @param string $name
-     *
-     * @return mixed
+     * @param Module $module
      */
-    protected function migrate($name)
+    protected function migrate(Module $module)
     {
-        $module = $this->module->findOrFail($name);
+        $path = str_replace(base_path(), '', (new Migrator($module))->getPath());
+
+        if ($this->option('subpath')) {
+            $path = $path . "/" . $this->option("subpath");
+        }
 
         $this->call('migrate', [
-            '--path' => $this->getPath($module),
+            '--path' => $path,
             '--database' => $this->option('database'),
             '--pretend' => $this->option('pretend'),
             '--force' => $this->option('force'),
         ]);
 
         if ($this->option('seed')) {
-            $this->call('module:seed', ['module' => $name]);
+            $this->call('module:seed', ['module' => $module->getName()]);
         }
-    }
-
-    /**
-     * Get migration path for specific module.
-     *
-     * @param  \Nwidart\Modules\Module $module
-     * @return string
-     */
-    protected function getPath($module)
-    {
-        $path = $module->getExtraPath(config('modules.paths.generator.migration'));
-
-        return str_replace(base_path(), '', $path);
     }
 
     /**
@@ -92,9 +85,9 @@ class MigrateCommand extends Command
      */
     protected function getArguments()
     {
-        return array(
-            array('module', InputArgument::OPTIONAL, 'The name of module will be used.'),
-        );
+        return [
+            ['module', InputArgument::OPTIONAL, 'The name of module will be used.'],
+        ];
     }
 
     /**
@@ -104,12 +97,13 @@ class MigrateCommand extends Command
      */
     protected function getOptions()
     {
-        return array(
-            array('direction', 'd', InputOption::VALUE_OPTIONAL, 'The direction of ordering.', 'asc'),
-            array('database', null, InputOption::VALUE_OPTIONAL, 'The database connection to use.'),
-            array('pretend', null, InputOption::VALUE_NONE, 'Dump the SQL queries that would be run.'),
-            array('force', null, InputOption::VALUE_NONE, 'Force the operation to run when in production.'),
-            array('seed', null, InputOption::VALUE_NONE, 'Indicates if the seed task should be re-run.'),
-        );
+        return [
+            ['direction', 'd', InputOption::VALUE_OPTIONAL, 'The direction of ordering.', 'asc'],
+            ['database', null, InputOption::VALUE_OPTIONAL, 'The database connection to use.'],
+            ['pretend', null, InputOption::VALUE_NONE, 'Dump the SQL queries that would be run.'],
+            ['force', null, InputOption::VALUE_NONE, 'Force the operation to run when in production.'],
+            ['seed', null, InputOption::VALUE_NONE, 'Indicates if the seed task should be re-run.'],
+            ['subpath', null, InputOption::VALUE_OPTIONAL, 'Indicate a subpath to run your migrations from'],
+        ];
     }
 }
